@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Protection contre les extensions de navigateur qui modifient le DOM */
+[data-dashlane-rid],
+[data-dashlane-classification],
+[data-dashlane-label],
+[data-kwimpalastatus],
+[data-kwimpalaid] {
+  background: inherit !important;
+  color: inherit !important;
+  border: inherit !important;
+  outline: inherit !important;
+  box-shadow: inherit !important;
+  transform: inherit !important;
+  opacity: inherit !important;
+  visibility: inherit !important;
+  display: inherit !important;
+  position: inherit !important;
+  z-index: inherit !important;
+}
+
+/* Styles personnalisés pour les inputs de date */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  background: transparent;
+  color: #b93737;
+  cursor: pointer;
+  filter: invert(35%) sepia(89%) saturate(1274%) hue-rotate(338deg) brightness(91%) contrast(88%);
+}
+
+input[type="date"]:focus,
+input[type="time"]:focus,
+input[type="datetime-local"]:focus {
+  outline: none;
+  border-color: #b93737;
+  ring: 2px;
+  ring-color: #b93737;
+}
+
+/* Animations pour la page de connexion */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 96%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+    --primary: 0 56% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 212 77% 13%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 4%;
+    --accent: 212 77% 13%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 56% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 56% 48%;
+    --chart-1: 0 56% 48%;
+    --chart-2: 212 77% 13%;
+    --chart-3: 0 0% 42%;
+    --chart-4: 0 0% 61%;
+    --chart-5: 0 0% 82%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Styles pour les notifications Sonner */
+.sonner-toast {
+  @apply shadow-lg border-gray-200 !important;
+}
+
+.sonner-description {
+  @apply text-gray-600 !important;
+}
+
+/* Styles pour les icônes de notifications */
+[data-sonner-toast][data-type="success"] {
+  border-left: 4px solid #10b981 !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-left: 4px solid #ef4444 !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  border-left: 4px solid #3b82f6 !important;
+}
+
+[data-sonner-toast][data-type="loading"] {
+  border-left: 4px solid #f59e0b !important;
+}
+
+/* Animations personnalisées pour la notification flottante */
+@keyframes notification-glow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.6);
+  }
+}
+
+@keyframes notification-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+@keyframes notification-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+/* Classes d'animation */
+.notification-pulse {
+  animation: notification-glow 2s ease-in-out infinite;
+}
+
+.notification-shake {
+  animation: notification-shake 0.5s ease-in-out 3;
+}
+
+.notification-wiggle {
+  animation: notification-wiggle 0.8s ease-in-out infinite;
+}
+
+/* Animation pour les toasts */
+[data-sonner-toast] {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Animations d'entrée pour les pages */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-from-bottom {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Classes utilitaires pour les animations */
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fade-in;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: slide-in-from-bottom;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+.duration-500 {
+  animation-duration: 500ms;
+}
+
+.duration-700 {
+  animation-duration: 700ms;
+}
+
+/* Amélioration des selects */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23b93737'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+/* Amélioration des checkboxes et radio buttons */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #b93737;
+}
