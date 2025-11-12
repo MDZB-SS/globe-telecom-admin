@@ -38,27 +38,37 @@ export class MessageService {
       params.push(`%${search}%`);
     }
 
-    // Date filters
+    // Date filters (utiliser created_at maintenant)
     if (dateFrom) {
       paramCount++;
-      whereConditions.push(`date_envoi >= $${paramCount}`);
+      whereConditions.push(`created_at >= $${paramCount}`);
       params.push(dateFrom);
     }
 
     if (dateTo) {
       paramCount++;
-      whereConditions.push(`date_envoi <= $${paramCount}`);
+      whereConditions.push(`created_at <= $${paramCount}`);
       params.push(dateTo);
     }
 
-    // Services filter
+    // Services filter - adapter pour la nouvelle structure
     if (services && services.length > 0) {
-      const serviceConditions = services.map((service) => {
-        paramCount++;
-        params.push(true);
-        return `${service} = $${paramCount}`;
-      });
-      whereConditions.push(`(${serviceConditions.join(' OR ')})`);
+      // Valider les noms de services pour éviter les injections SQL
+      const validServices = [
+        'cameras_residentiel', 'alarme_residentiel', 'domotique', 'interphone', 'wifi_residentiel',
+        'portails_motorises', 'securite_commerciale', 'controle_acces', 'gestion_reseau',
+        'maintenance', 'consultation'
+      ];
+      const filteredServices = services.filter(s => validServices.includes(s));
+      
+      if (filteredServices.length > 0) {
+        const serviceConditions = filteredServices.map((service) => {
+          paramCount++;
+          params.push(true);
+          return `${service} = $${paramCount}`;
+        });
+        whereConditions.push(`(${serviceConditions.join(' OR ')})`);
+      }
     }
 
     const whereClause = whereConditions.join(' AND ');
@@ -73,16 +83,34 @@ export class MessageService {
     const offsetParam = paramCount + 2;
     params.push(limit, (page - 1) * limit);
 
+    // Mapper le tri pour la nouvelle structure
+    const sortFieldMap: { [key: string]: string } = {
+      'date_envoi': 'created_at',
+      'prenom': 'prenom',
+      'nom': 'nom',
+      'email': 'email'
+    };
+    const mappedSortBy = sortFieldMap[safeSortBy] || 'created_at';
+
     // Execute count and data queries in parallel
     const [countResult, dataResult] = await Promise.all([
-      db.query(`SELECT COUNT(*) FROM globetelecom.messages_contact WHERE ${whereClause}`, params.slice(0, paramCount)),
+      db.query(`SELECT COUNT(*) FROM public.contact_requests WHERE ${whereClause}`, params.slice(0, paramCount)),
       db.query(`
-        SELECT id, prenom, nom, email, telephone, installation, maintenance, 
-               surveillance, consultation, message, recevoir_offres, 
-               accepte_conditions, date_envoi, ip_address, user_agent
-        FROM globetelecom.messages_contact 
+        SELECT 
+          id, prenom, nom, email, telephone, clientType,
+          cameras_residentiel, alarme_residentiel, domotique, interphone, wifi_residentiel,
+          portails_motorises, securite_commerciale, controle_acces, gestion_reseau,
+          maintenance, consultation,
+          type_propriete, budget, urgence,
+          message, newsletter, consentement,
+          status, priority, assigned_to, notes,
+          created_at, updated_at, responded_at, closed_at,
+          created_at as date_envoi,
+          newsletter as recevoir_offres,
+          consentement as accepte_conditions
+        FROM public.contact_requests 
         WHERE ${whereClause}
-        ORDER BY ${safeSortBy} ${safeSortOrder}
+        ORDER BY ${mappedSortBy} ${safeSortOrder}
         LIMIT $${limitParam} OFFSET $${offsetParam}
       `, params)
     ]);
@@ -104,12 +132,21 @@ export class MessageService {
     return result;
   }
 
-  static async getMessageById(id: number): Promise<ContactMessage | null> {
+  static async getMessageById(id: string): Promise<ContactMessage | null> {
     const query = `
-      SELECT id, prenom, nom, email, telephone, installation, maintenance, 
-             surveillance, consultation, message, recevoir_offres, 
-             accepte_conditions, date_envoi, ip_address, user_agent
-      FROM globetelecom.messages_contact
+      SELECT 
+        id, prenom, nom, email, telephone, clientType,
+        cameras_residentiel, alarme_residentiel, domotique, interphone, wifi_residentiel,
+        portails_motorises, securite_commerciale, controle_acces, gestion_reseau,
+        maintenance, consultation,
+        type_propriete, budget, urgence,
+        message, newsletter, consentement,
+        status, priority, assigned_to, notes,
+        created_at, updated_at, responded_at, closed_at,
+        created_at as date_envoi,
+        newsletter as recevoir_offres,
+        consentement as accepte_conditions
+      FROM public.contact_requests
       WHERE id = $1
     `;
     
@@ -117,8 +154,8 @@ export class MessageService {
     return result.rows[0] || null;
   }
 
-  static async deleteMessage(id: number): Promise<boolean> {
-    const query = 'DELETE FROM globetelecom.messages_contact WHERE id = $1';
+  static async deleteMessage(id: string): Promise<boolean> {
+    const query = 'DELETE FROM public.contact_requests WHERE id = $1';
     const result = await db.query(query, [id]);
     return (result.rowCount ?? 0) > 0;
   }
@@ -127,10 +164,19 @@ export class MessageService {
     const { search, dateFrom, dateTo, services } = filters;
 
     let query = `
-      SELECT id, prenom, nom, email, telephone, installation, maintenance, 
-             surveillance, consultation, message, recevoir_offres, 
-             accepte_conditions, date_envoi, ip_address, user_agent
-      FROM globetelecom.messages_contact
+      SELECT 
+        id, prenom, nom, email, telephone, clientType,
+        cameras_residentiel, alarme_residentiel, domotique, interphone, wifi_residentiel,
+        portails_motorises, securite_commerciale, controle_acces, gestion_reseau,
+        maintenance, consultation,
+        type_propriete, budget, urgence,
+        message, newsletter, consentement,
+        status, priority, assigned_to, notes,
+        created_at, updated_at, responded_at, closed_at,
+        created_at as date_envoi,
+        newsletter as recevoir_offres,
+        consentement as accepte_conditions
+      FROM public.contact_requests
       WHERE 1=1
     `;
     
@@ -150,26 +196,36 @@ export class MessageService {
 
     if (dateFrom) {
       paramCount++;
-      query += ` AND date_envoi >= $${paramCount}`;
+      query += ` AND created_at >= $${paramCount}`;
       params.push(dateFrom);
     }
 
     if (dateTo) {
       paramCount++;
-      query += ` AND date_envoi <= $${paramCount}`;
+      query += ` AND created_at <= $${paramCount}`;
       params.push(dateTo);
     }
 
     if (services && services.length > 0) {
-      const serviceConditions = services.map((service) => {
-        paramCount++;
-        params.push(true);
-        return `${service} = $${paramCount}`;
-      });
-      query += ` AND (${serviceConditions.join(' OR ')})`;
+      // Valider les noms de services pour éviter les injections SQL
+      const validServices = [
+        'cameras_residentiel', 'alarme_residentiel', 'domotique', 'interphone', 'wifi_residentiel',
+        'portails_motorises', 'securite_commerciale', 'controle_acces', 'gestion_reseau',
+        'maintenance', 'consultation'
+      ];
+      const filteredServices = services.filter(s => validServices.includes(s));
+      
+      if (filteredServices.length > 0) {
+        const serviceConditions = filteredServices.map((service) => {
+          paramCount++;
+          params.push(true);
+          return `${service} = $${paramCount}`;
+        });
+        query += ` AND (${serviceConditions.join(' OR ')})`;
+      }
     }
 
-    query += ' ORDER BY date_envoi DESC';
+    query += ' ORDER BY created_at DESC';
 
     const result = await db.query(query, params);
     return result.rows as ContactMessage[];

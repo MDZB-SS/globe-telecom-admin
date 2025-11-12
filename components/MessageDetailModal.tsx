@@ -3,6 +3,8 @@
 import { ContactMessage } from '../types/message';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Calendar, Mail, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { ClientOnly } from './ui/client-only';
+import { formatDateTime } from '@/lib/date-utils';
 
 interface MessageDetailModalProps {
   message: ContactMessage | null;
@@ -14,9 +16,19 @@ export default function MessageDetailModal({ message, isOpen, onClose }: Message
   if (!message) return null;
 
   const services = [];
-  if (message.installation) services.push('Installation');
+  // Services résidentiels
+  if (message.cameras_residentiel) services.push('Caméras Résidentiel');
+  if (message.alarme_residentiel) services.push('Alarme Résidentiel');
+  if (message.domotique) services.push('Domotique');
+  if (message.interphone) services.push('Interphone');
+  if (message.wifi_residentiel) services.push('WiFi Résidentiel');
+  // Services entreprise
+  if (message.portails_motorises) services.push('Portails Motorisés');
+  if (message.securite_commerciale) services.push('Sécurité Commerciale');
+  if (message.controle_acces) services.push('Contrôle d\'Accès');
+  if (message.gestion_reseau) services.push('Gestion Réseau');
+  // Services généraux
   if (message.maintenance) services.push('Maintenance');
-  if (message.surveillance) services.push('Surveillance');
   if (message.consultation) services.push('Consultation');
 
   return (
@@ -55,15 +67,11 @@ export default function MessageDetailModal({ message, isOpen, onClose }: Message
                 <Calendar className="h-4 w-4 text-globe-red" />
                 <div>
                   <p className="text-sm text-gray-600">Date d&apos;envoi</p>
-                  <p className="font-medium text-globe-navy">
-                    {new Intl.DateTimeFormat('fr-FR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    }).format(new Date(message.date_envoi))}
-                  </p>
+                  <ClientOnly fallback={<p className="font-medium text-globe-navy">--</p>}>
+                    <p className="font-medium text-globe-navy">
+                      {formatDateTime(message.created_at || message.date_envoi || '')}
+                    </p>
+                  </ClientOnly>
                 </div>
               </div>
             </div>
@@ -104,10 +112,16 @@ export default function MessageDetailModal({ message, isOpen, onClose }: Message
           <div className="bg-globe-light p-4 rounded-lg border border-globe-navy/10">
             <h3 className="font-semibold text-globe-navy mb-3 text-lg">Préférences</h3>
             <div className="space-y-3">
+              {message.clientType && (
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-globe-navy/10">
+                  <span className="text-globe-navy font-medium">Type de client</span>
+                  <span className="text-globe-navy font-semibold capitalize">{message.clientType}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-globe-navy/10">
                 <span className="text-globe-navy font-medium">Recevoir des offres</span>
                 <div className="flex items-center gap-2">
-                  {message.recevoir_offres ? (
+                  {(message.newsletter || message.recevoir_offres) ? (
                     <>
                       <CheckCircle className="h-5 w-5 text-green-500" />
                       <span className="text-green-600 font-medium">Oui</span>
@@ -123,7 +137,7 @@ export default function MessageDetailModal({ message, isOpen, onClose }: Message
               <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-globe-navy/10">
                 <span className="text-globe-navy font-medium">Conditions acceptées</span>
                 <div className="flex items-center gap-2">
-                  {message.accepte_conditions ? (
+                  {(message.consentement || message.accepte_conditions) ? (
                     <>
                       <CheckCircle className="h-5 w-5 text-green-500" />
                       <span className="text-green-600 font-medium">Oui</span>
@@ -139,15 +153,32 @@ export default function MessageDetailModal({ message, isOpen, onClose }: Message
             </div>
           </div>
 
-          {/* Informations techniques */}
-          <div className="bg-globe-light p-4 rounded-lg border border-globe-navy/10">
-            <h3 className="font-semibold text-globe-navy mb-3 text-lg">Informations techniques</h3>
-            <div className="bg-white p-3 rounded-lg border border-globe-navy/10">
-              <p className="text-xs text-gray-600 break-all font-mono">
-                {message.user_agent}
-              </p>
+          {/* Informations supplémentaires */}
+          {(message.type_propriete || message.budget || message.urgence) && (
+            <div className="bg-globe-light p-4 rounded-lg border border-globe-navy/10">
+              <h3 className="font-semibold text-globe-navy mb-3 text-lg">Informations supplémentaires</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {message.type_propriete && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Type de propriété</p>
+                    <p className="font-medium text-globe-navy">{message.type_propriete}</p>
+                  </div>
+                )}
+                {message.budget && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Budget</p>
+                    <p className="font-medium text-globe-navy">{message.budget}</p>
+                  </div>
+                )}
+                {message.urgence && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Urgence</p>
+                    <p className="font-medium text-globe-navy">{message.urgence}</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

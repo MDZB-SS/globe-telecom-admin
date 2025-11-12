@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format as formatDate } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { Badge } from '../../components/ui/badge';
 import { 
   FileText, Download, Calendar as CalendarIcon, Filter, 
-  BarChart3, PieChart, TrendingUp, Clock, Users, Mail 
+  BarChart3, PieChart, TrendingUp, Clock, Users, Mail, RefreshCw
 } from 'lucide-react';
 import { toastSuccess, toastError, toastInfo } from '../../lib/toast';
 import { format } from 'date-fns';
@@ -22,6 +22,24 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState<Date>();
   const [reportType, setReportType] = useState('all');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Services disponibles
+  const availableServices = [
+    { value: 'cameras_residentiel', label: 'Caméras Résidentiel' },
+    { value: 'alarme_residentiel', label: 'Alarme Résidentiel' },
+    { value: 'domotique', label: 'Domotique' },
+    { value: 'interphone', label: 'Interphone' },
+    { value: 'wifi_residentiel', label: 'WiFi Résidentiel' },
+    { value: 'portails_motorises', label: 'Portails Motorisés' },
+    { value: 'securite_commerciale', label: 'Sécurité Commerciale' },
+    { value: 'controle_acces', label: 'Contrôle d\'Accès' },
+    { value: 'gestion_reseau', label: 'Gestion Réseau' },
+    { value: 'maintenance', label: 'Maintenance' },
+    { value: 'consultation', label: 'Consultation' },
+  ];
 
   const reportTypes = [
     { value: 'all', label: 'Rapport complet', icon: FileText },
@@ -37,6 +55,26 @@ export default function ReportsPage() {
     { label: "Ce mois", days: "month" },
   ];
 
+  // Charger les statistiques
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Erreur chargement stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleQuickRange = (days: number | string) => {
     const today = new Date();
     setDateTo(today);
@@ -50,29 +88,34 @@ export default function ReportsPage() {
     }
   };
 
+  const toggleService = (service: string) => {
+    setSelectedServices(prev => 
+      prev.includes(service) 
+        ? prev.filter(s => s !== service)
+        : [...prev, service]
+    );
+  };
+
   const generateReport = async (format: 'pdf' | 'excel' | 'csv') => {
     setIsGenerating(true);
     
     try {
-      // Simulation de génération de rapport
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       const params = new URLSearchParams({
-        type: reportType,
-        format,
+        export: 'csv',
         ...(dateFrom && { dateFrom: formatDate(dateFrom, 'yyyy-MM-dd') }),
         ...(dateTo && { dateTo: formatDate(dateTo, 'yyyy-MM-dd') }),
+        ...(selectedServices.length > 0 && { services: selectedServices.join(',') }),
       });
 
-      // Pour l'instant, on génère un CSV simple
       if (format === 'csv') {
-        const response = await fetch(`/api/messages?export=csv&${params.toString()}`);
+        const response = await fetch(`/api/messages?${params.toString()}`);
         if (response.ok) {
           const blob = await response.blob();
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `rapport-globetelecom-${Date.now()}.csv`;
+          const dateStr = formatDate(new Date(), 'yyyy-MM-dd');
+          a.download = `rapport-globetelecom-${dateStr}.csv`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
@@ -80,8 +123,33 @@ export default function ReportsPage() {
           
           toastSuccess({
             title: 'Rapport généré !',
-            description: `Rapport ${reportTypes.find(t => t.value === reportType)?.label.toLowerCase()} téléchargé`,
+            description: `Rapport CSV téléchargé avec succès`,
           });
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Erreur lors de la génération');
+        }
+      } else if (format === 'pdf') {
+        const response = await fetch(`/api/reports/pdf?${params.toString()}`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const dateStr = formatDate(new Date(), 'yyyy-MM-dd');
+          a.download = `rapport-globetelecom-${dateStr}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          toastSuccess({
+            title: 'Rapport PDF généré !',
+            description: `Rapport PDF téléchargé avec succès`,
+          });
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Erreur lors de la génération du PDF');
         }
       } else {
         toastInfo({
@@ -93,7 +161,7 @@ export default function ReportsPage() {
       console.error('Report generation error:', error);
       toastError({
         title: 'Erreur de génération',
-        description: 'Impossible de générer le rapport',
+        description: error instanceof Error ? error.message : 'Impossible de générer le rapport',
       });
     } finally {
       setIsGenerating(false);
@@ -101,34 +169,43 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-purple-600 rounded-lg">
-            <FileText className="h-6 w-6 text-white" />
+    <div className="min-h-screen bg-globe-light">
+      {/* En-tête */}
+      <div className="bg-gradient-to-r from-globe-navy to-[#0d2540] px-6 py-8 mb-6 shadow-lg rounded-b-2xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-globe-red rounded-2xl shadow-lg">
+              <FileText className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Rapports & Exports</h1>
+              <p className="text-white/70 mt-1">Générez des rapports détaillés sur l&apos;activité des messages</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Rapports & Analytics
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Générez des rapports détaillés sur l&apos;activité des messages de contact.
-            </p>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchStats}
+            disabled={loading}
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="px-6 pb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Configuration du rapport */}
         <div className="lg:col-span-1">
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
+          <Card className="border-globe-navy/10 shadow-lg bg-white rounded-2xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-purple-500" />
+              <CardTitle className="flex items-center gap-2 text-globe-navy">
+                <Filter className="h-5 w-5 text-globe-red" />
                 Configuration
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-gray-600">
                 Personnalisez votre rapport
               </CardDescription>
             </CardHeader>
@@ -214,14 +291,45 @@ export default function ReportsPage() {
                 </div>
               </div>
 
+              {/* Filtres par services */}
+              <div className="space-y-2 pt-2">
+                <Label>Filtrer par services (optionnel)</Label>
+                <div className="max-h-48 overflow-y-auto space-y-2 p-2 border rounded-lg bg-gray-50">
+                  {availableServices.map((service) => (
+                    <label
+                      key={service.value}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedServices.includes(service.value)}
+                        onChange={() => toggleService(service.value)}
+                        className="w-4 h-4 text-globe-red border-gray-300 rounded focus:ring-globe-red"
+                      />
+                      <span className="text-sm text-globe-navy">{service.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedServices.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedServices([])}
+                    className="w-full text-xs"
+                  >
+                    Effacer les filtres ({selectedServices.length})
+                  </Button>
+                )}
+              </div>
+
               {/* Boutons de génération */}
-              <div className="space-y-2 pt-4">
+              <div className="space-y-2 pt-4 border-t">
                 <Label>Format d&apos;export</Label>
                 <div className="space-y-2">
                   <Button 
                     onClick={() => generateReport('csv')}
                     disabled={isGenerating}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-gradient-to-r from-globe-red to-[#a02f2f] hover:from-[#a02f2f] hover:to-globe-red text-white shadow-lg"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     {isGenerating ? 'Génération...' : 'Export CSV'}
@@ -231,7 +339,7 @@ export default function ReportsPage() {
                     onClick={() => generateReport('excel')}
                     disabled={isGenerating}
                     variant="outline"
-                    className="w-full"
+                    className="w-full border-globe-navy/20"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Export Excel (Bientôt)
@@ -240,11 +348,10 @@ export default function ReportsPage() {
                   <Button 
                     onClick={() => generateReport('pdf')}
                     disabled={isGenerating}
-                    variant="outline"
-                    className="w-full"
+                    className="w-full bg-gradient-to-r from-globe-navy to-[#0d2540] hover:from-[#0d2540] hover:to-globe-navy text-white shadow-lg"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Export PDF (Bientôt)
+                    {isGenerating ? 'Génération...' : 'Export PDF'}
                   </Button>
                 </div>
               </div>
@@ -256,57 +363,63 @@ export default function ReportsPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Métriques rapides */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+            <Card className="bg-gradient-to-br from-globe-red to-[#a02f2f] border-0 shadow-xl rounded-2xl">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-white/90 flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Messages analysés
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">15</div>
-                <p className="text-xs opacity-80 mt-1">
+                <div className="text-3xl font-bold text-white">
+                  {loading ? '...' : (stats?.metrics?.total || 0).toLocaleString()}
+                </div>
+                <p className="text-xs text-white/70 mt-1">
                   Base de données complète
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+            <Card className="bg-gradient-to-br from-globe-navy to-[#0d2540] border-0 shadow-xl rounded-2xl">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Contacts uniques
+                <CardTitle className="text-sm font-medium text-white/90 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Aujourd&apos;hui
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs opacity-80 mt-1">
-                  Déduplication automatique
+                <div className="text-3xl font-bold text-white">
+                  {loading ? '...' : (stats?.metrics?.today || 0)}
+                </div>
+                <p className="text-xs text-white/70 mt-1">
+                  Messages reçus aujourd&apos;hui
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
+            <Card className="bg-white border-globe-navy/10 shadow-lg rounded-2xl">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium opacity-90 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Période active
+                <CardTitle className="text-sm font-medium text-globe-navy flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-globe-red" />
+                  Cette semaine
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">30j</div>
-                <p className="text-xs opacity-80 mt-1">
-                  Données disponibles
+                <div className="text-3xl font-bold text-globe-navy">
+                  {loading ? '...' : (stats?.metrics?.week || 0)}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Messages sur 7 jours
                 </p>
               </CardContent>
             </Card>
           </div>
 
           {/* Aperçu du rapport */}
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
+          <Card className="border-globe-navy/10 shadow-lg bg-white rounded-2xl">
             <CardHeader>
-              <CardTitle>Aperçu du rapport</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-globe-navy">Aperçu du rapport</CardTitle>
+              <CardDescription className="text-gray-600">
                 {reportTypes.find(t => t.value === reportType)?.label} 
                 {dateFrom && dateTo && (
                   <span className="ml-2">
@@ -319,31 +432,81 @@ export default function ReportsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">Services analysés: 4</Badge>
-                  <Badge variant="secondary">Domaines: 4 types</Badge>
-                  <Badge variant="secondary">Données temps réel</Badge>
+                  <Badge className="bg-globe-red/10 text-globe-red border-globe-red/20">
+                    Services: {stats?.charts?.services?.length || 0}
+                  </Badge>
+                  <Badge className="bg-globe-navy/10 text-globe-navy border-globe-navy/20">
+                    Total: {stats?.metrics?.total || 0} messages
+                  </Badge>
+                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                    Données temps réel
+                  </Badge>
+                  {selectedServices.length > 0 && (
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                      Filtres: {selectedServices.length} service{selectedServices.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
                 </div>
                 
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium text-gray-900 mb-2">Contenu du rapport :</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Synthèse des messages reçus</li>
-                    <li>• Répartition par service demandé</li>
-                    <li>• Analyse temporelle des contacts</li>
-                    <li>• Top des domaines email</li>
-                    <li>• Taux d&apos;acceptation des conditions</li>
-                    <li>• Données de géolocalisation (IP)</li>
+                <div className="border border-globe-navy/10 rounded-lg p-4 bg-globe-light">
+                  <h4 className="font-semibold text-globe-navy mb-3">Contenu du rapport CSV :</h4>
+                  <ul className="text-sm text-gray-700 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-globe-red mt-0.5">•</span>
+                      <span>Informations de contact (nom, prénom, email, téléphone)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-globe-red mt-0.5">•</span>
+                      <span>Type de client (résidentiel/entreprise)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-globe-red mt-0.5">•</span>
+                      <span>Services demandés (tous les services cochés)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-globe-red mt-0.5">•</span>
+                      <span>Message et préférences (newsletter, consentement)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-globe-red mt-0.5">•</span>
+                      <span>Date de création et métadonnées</span>
+                    </li>
                   </ul>
                 </div>
 
-                <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
-                  <strong>💡 Astuce :</strong> Les rapports sont générés en temps réel à partir de votre base de données PostgreSQL. 
-                  Utilisez les filtres de date pour analyser des périodes spécifiques.
+                {/* Statistiques des services */}
+                {stats?.charts?.services && stats.charts.services.length > 0 && (
+                  <div className="border border-globe-navy/10 rounded-lg p-4 bg-globe-light">
+                    <h4 className="font-semibold text-globe-navy mb-3">Services les plus demandés :</h4>
+                    <div className="space-y-2">
+                      {stats.charts.services
+                        .sort((a: any, b: any) => (b.value || 0) - (a.value || 0))
+                        .slice(0, 5)
+                        .map((service: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: service.color || '#b93737' }}
+                              />
+                              <span className="text-globe-navy">{service.name}</span>
+                            </div>
+                            <span className="font-semibold text-globe-red">{service.value} demande{service.value > 1 ? 's' : ''}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-600 bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                  <strong className="text-blue-800">💡 Astuce :</strong> Les rapports sont générés en temps réel à partir de votre base de données PostgreSQL. 
+                  Utilisez les filtres de date et de services pour analyser des périodes et catégories spécifiques.
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

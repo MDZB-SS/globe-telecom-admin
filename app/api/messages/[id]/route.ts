@@ -6,11 +6,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params;
-    const id = parseInt(idParam);
-    if (isNaN(id)) {
+    const { id } = await params;
+    
+    // Valider que c'est un UUID valide (format basique)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
       return NextResponse.json(
-        { error: 'Invalid message ID' },
+        { error: 'Invalid message ID format' },
         { status: 400 }
       );
     }
@@ -38,11 +40,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params;
-    const id = parseInt(idParam);
-    if (isNaN(id)) {
+    const { id } = await params;
+    
+    // Valider que c'est un UUID valide (format basique)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
       return NextResponse.json(
-        { error: 'Invalid message ID' },
+        { error: 'Invalid message ID format' },
         { status: 400 }
       );
     }

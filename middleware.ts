@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
+  const pathname = url.pathname;
 
   // Skip auth for static files, Next.js internals, login page and API routes
+  // Exclure tous les fichiers statiques Next.js et les assets
   if (
-    url.pathname.startsWith('/_next') ||
-    url.pathname.startsWith('/api') ||
-    url.pathname.startsWith('/favicon.ico') ||
-    url.pathname === '/login' ||
-    url.pathname.includes('.')
+    pathname.startsWith('/_next/') ||           // Tous les fichiers Next.js internes
+    pathname.startsWith('/api/') ||             // Routes API
+    pathname.startsWith('/favicon.ico') ||      // Favicon
+    pathname.startsWith('/public/') ||          // Fichiers publics
+    pathname === '/login' ||                    // Page de login
+    pathname.includes('.') ||                    // Fichiers avec extension (images, etc.)
+    pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|css|js|woff|woff2|ttf|eot)$/i) // Assets statiques
   ) {
     return NextResponse.next();
   }
@@ -47,5 +51,15 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next (all Next.js internal files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     * - files with extensions (images, fonts, etc.)
+     */
+    '/((?!api|_next|favicon.ico|public|.*\\..*).*)',
+  ],
 };
